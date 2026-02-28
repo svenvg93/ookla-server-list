@@ -308,7 +308,7 @@ export default function App() {
         {hasData && <ServersPagination table={table} />}
       </main>
 
-      <footer className="border-t px-8 py-4 mt-8">
+      <footer className="border-t px-8 py-4">
         <p className="text-xs text-muted-foreground text-center">
           This tool is not affiliated with, endorsed by, or connected to Ookla, LLC or Speedtest.net.
           Server data is sourced from the publicly available Speedtest server API.
