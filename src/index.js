@@ -119,7 +119,7 @@ const HTML = `<!DOCTYPE html>
     /* ── Cell types ── */
     .cell-id   { color: var(--muted); font-size: 0.77rem; font-variant-numeric: tabular-nums; }
     .cell-dist { color: var(--muted); text-align: right; }
-    .flag      { font-size: 1.15em; margin-right: 5px; }
+
 
     .host-cell { display: flex; align-items: center; gap: 8px; }
     .host-text {
@@ -177,8 +177,8 @@ const HTML = `<!DOCTYPE html>
 
   <div class="search-bar">
     <input id="api-search" type="text"
-      placeholder="Enter ISP / operator name (e.g. Orange, Vodafone, Comcast)…" />
-    <button class="btn" id="search-btn" onclick="fetchServers()">Search</button>
+      placeholder="Search by ISP, operator, city… (e.g. Orange, Paris, Vodafone)" />
+    <button class="btn" id="search-btn">Search</button>
   </div>
 
   <div class="toolbar" id="toolbar" style="display:none">
@@ -195,8 +195,8 @@ const HTML = `<!DOCTYPE html>
 
   <div class="table-wrap" id="table-wrap">
     <div class="state">
-      <div class="state-icon">🔍</div>
-      <div>Search for an ISP or operator above to load servers</div>
+      <div class="spinner"></div>
+      <div>Loading servers…</div>
     </div>
   </div>
 
@@ -216,36 +216,38 @@ const HTML = `<!DOCTYPE html>
     { key: 'https_functional', label: 'HTTPS' },
   ];
 
-  function flag(cc) {
-    if (!cc || cc.length !== 2) return '';
-    return cc.toUpperCase().replace(/./g, c =>
-      String.fromCodePoint(0x1F1E0 + c.charCodeAt(0) - 65)
-    );
-  }
-
   async function fetchServers() {
+    console.log('[ookla] fetchServers called');
     const query = document.getElementById('api-search').value.trim();
-    if (!query) return;
+    console.log('[ookla] query:', query);
 
     const btn = document.getElementById('search-btn');
     btn.disabled = true;
     btn.textContent = 'Loading…';
     document.getElementById('toolbar').style.display = 'none';
     setState('loading');
+    console.log('[ookla] loading state set, fetching...');
 
     try {
       const res = await fetch('/api/servers?search=' + encodeURIComponent(query));
-      const data = await res.json();
-      if (!res.ok || data.error) {
-        const detail = data.error + (data.preview ? ' — ' + data.preview : '');
-        throw new Error(detail);
+      console.log('[ookla] response status:', res.status);
+      const text = await res.text();
+      console.log('[ookla] response body (first 200 chars):', text.slice(0, 200));
+
+      let data;
+      try { data = JSON.parse(text); }
+      catch (parseErr) { throw new Error('Not JSON: ' + text.slice(0, 150)); }
+
+      if (!res.ok || (data && data.error)) {
+        throw new Error((data && data.error) + ((data && data.preview) ? ' — ' + data.preview : ''));
       }
-      if (!Array.isArray(data)) throw new Error('Unexpected response format');
+      if (!Array.isArray(data)) throw new Error('Expected array, got: ' + typeof data);
       allServers = data;
       buildCountryFilter();
       applyFilters();
       document.getElementById('toolbar').style.display = 'flex';
     } catch (e) {
+      console.error('[ookla] error:', e);
       setState('error', e.message);
     } finally {
       btn.disabled = false;
@@ -297,15 +299,16 @@ const HTML = `<!DOCTYPE html>
     const thead = '<thead><tr>' + COLS.map(c => {
       const active = sortCol === c.key;
       const icon   = active ? (sortDir === 1 ? '↑' : '↓') : '↕';
-      return '<th class="' + (active ? 'sorted' : '') + '" onclick="sortBy(\'' + c.key + '\')">'
+      return '<th class="' + (active ? 'sorted' : '') + '" data-col="' + c.key + '">'
            + c.label + '<span class="sort-icon">' + icon + '</span></th>';
     }).join('') + '</tr></thead>';
 
     const tbody = '<tbody>' + rows.map(s => {
-      const hostEsc = s.host.replace(/'/g, "\\'");
       return '<tr>'
-        + '<td class="cell-id">'  + s.id + '</td>'
-        + '<td><span class="flag">' + flag(s.cc) + '</span>' + esc(s.country) + '</td>'
+        + '<td class="cell-id"><div class="host-cell">' + s.id
+          + '<button class="copy-btn" data-host="' + esc(s.id) + '">copy</button>'
+          + '</div></td>'
+        + '<td>' + esc(s.country) + '</td>'
         + '<td>'
           + (s.preferred ? '<span class="dot-preferred" title="Preferred server"></span>' : '')
           + esc(s.name)
@@ -313,7 +316,6 @@ const HTML = `<!DOCTYPE html>
         + '<td>' + esc(s.sponsor) + '</td>'
         + '<td><div class="host-cell">'
           + '<span class="host-text">' + esc(s.host) + '</span>'
-          + '<button class="copy-btn" onclick="copyHost(this,\'' + hostEsc + '\')">copy</button>'
         + '</div></td>'
         + '<td class="cell-dist">' + (s.distance != null ? s.distance.toLocaleString() + ' km' : '—') + '</td>'
         + '<td>' + (s.https_functional
@@ -333,13 +335,20 @@ const HTML = `<!DOCTYPE html>
     applyFilters();
   }
 
-  function copyHost(btn, host) {
-    navigator.clipboard.writeText(host).then(() => {
-      btn.textContent = 'copied!';
-      btn.classList.add('copied');
-      setTimeout(() => { btn.textContent = 'copy'; btn.classList.remove('copied'); }, 1500);
-    });
-  }
+  document.getElementById('table-wrap').addEventListener('click', function(e) {
+    var th = e.target.closest('th[data-col]');
+    if (th) { sortBy(th.dataset.col); return; }
+
+    var btn = e.target.closest('.copy-btn');
+    if (btn) {
+      var host = btn.dataset.host;
+      navigator.clipboard.writeText(host).then(function() {
+        btn.textContent = 'copied!';
+        btn.classList.add('copied');
+        setTimeout(function() { btn.textContent = 'copy'; btn.classList.remove('copied'); }, 1500);
+      });
+    }
+  });
 
   function setState(type, msg) {
     const icons = { loading: null, empty: '🤷', error: '⚠️' };
@@ -355,9 +364,13 @@ const HTML = `<!DOCTYPE html>
       .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
   }
 
-  document.getElementById('api-search').addEventListener('keydown', e => {
+  document.getElementById('search-btn').addEventListener('click', fetchServers);
+  document.getElementById('api-search').addEventListener('keydown', function(e) {
     if (e.key === 'Enter') fetchServers();
   });
+
+  console.log('[ookla] script loaded OK');
+  fetchServers();
 </script>
 </body>
 </html>`;
@@ -370,7 +383,7 @@ export default {
       const search = url.searchParams.get('search') ?? '';
       const ooklaUrl =
         'https://www.speedtest.net/api/js/servers?engine=js&https_functional=true&limit=1000'
-        + '&search=' + encodeURIComponent(search);
+        + (search ? '&search=' + encodeURIComponent(search) : '');
 
       try {
         const resp = await fetch(ooklaUrl, {
