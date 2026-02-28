@@ -18,6 +18,7 @@ import {
 import { ModeToggle } from '@/components/mode-toggle'
 import { ServerDetailSheet } from '@/components/server-detail-sheet'
 import { AboutDialog } from '@/components/about-dialog'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -94,8 +95,11 @@ export default function App() {
   const fetchServers = useCallback(async (searchQuery: string) => {
     setLoading(true)
     setError(null)
+    const trimmed = searchQuery.trim()
+    // Ookla API only supports single-word search; send first word, apply full query client-side
+    const apiTerm = trimmed.split(/\s+/)[0] ?? ''
     try {
-      const url = '/api/servers' + (searchQuery ? '?search=' + encodeURIComponent(searchQuery) : '')
+      const url = '/api/servers' + (apiTerm ? '?search=' + encodeURIComponent(apiTerm) : '')
       const res = await fetch(url)
       const text = await res.text()
       let data: unknown
@@ -106,6 +110,8 @@ export default function App() {
         throw new Error(msg ?? 'Unexpected response format')
       }
       setAllServers(data as Server[])
+      // Apply full multi-word query as client-side filter
+      if (trimmed) setGlobalFilter(trimmed)
     } catch (e) {
       setError((e as Error).message)
     } finally {
@@ -299,31 +305,44 @@ export default function App() {
 
       <main className="mx-auto max-w-screen-2xl px-8 py-8">
         {/* Search */}
-        <div className="flex gap-2 mb-6 max-w-2xl">
-          <div className="relative flex-1">
-            <Input
-              ref={searchRef}
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && fetchServers(query)}
-              placeholder="Search by ISP, operator, city… (e.g. Orange, Paris, Vodafone)"
-              className={query ? 'pr-8' : undefined}
-            />
-            {query && (
-              <button
-                onClick={() => { setQuery(''); fetchServers('') }}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                aria-label="Clear search"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
+        <TooltipProvider>
+          <div className="flex gap-2 mb-6 max-w-2xl">
+            <div className="relative flex-1">
+              <Input
+                ref={searchRef}
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && fetchServers(query)}
+                placeholder="Search by ISP, operator, city… (e.g. Orange, Paris, Vodafone)"
+                className={query ? 'pr-8' : undefined}
+              />
+              {query && (
+                <button
+                  onClick={() => { setQuery(''); setGlobalFilter(''); fetchServers('') }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label="Clear search"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+            <Button onClick={() => fetchServers(query)} disabled={loading}>
+              <Search className="h-4 w-4 mr-2" />
+              {loading ? 'Loading…' : 'Search'}
+            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0 text-muted-foreground" tabIndex={-1}>
+                  <Info className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="max-w-64 text-xs leading-relaxed">
+                <p className="font-medium mb-1">How search works</p>
+                <p>The first word is sent to the Speedtest API to fetch matching servers. Any additional words refine the results locally — so <span className="font-mono">Orange France</span> fetches all Orange servers, then filters for France.</p>
+              </TooltipContent>
+            </Tooltip>
           </div>
-          <Button onClick={() => fetchServers(query)} disabled={loading}>
-            <Search className="h-4 w-4 mr-2" />
-            {loading ? 'Loading…' : 'Search'}
-          </Button>
-        </div>
+        </TooltipProvider>
 
         {/* Error */}
         {error && (

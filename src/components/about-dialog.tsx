@@ -1,4 +1,4 @@
-import { Zap, Github, Database, Info, ExternalLink } from 'lucide-react'
+import { Zap, Github, Database, Info, ExternalLink, Cloud } from 'lucide-react'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog'
@@ -51,6 +51,24 @@ export function AboutDialog({ open, onOpenChange }: AboutDialogProps) {
               Server data is fetched from the publicly available Speedtest server list
               at <span className="font-mono text-xs text-foreground">www.speedtest.net/api/js/servers</span>.
               Data is refreshed on each search.
+            </p>
+          </section>
+
+          <div className="border-t" />
+
+          {/* How it works */}
+          <section className="space-y-1.5">
+            <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              <Cloud className="h-3 w-3" />
+              How it works
+            </div>
+            <p className="text-muted-foreground leading-relaxed">
+              Requests go through a <span className="text-foreground font-medium">Cloudflare Worker</span> that proxies the Speedtest API.
+              The worker reads your IP geolocation from Cloudflare's edge network and passes your{' '}
+              <span className="font-mono text-xs text-foreground">lat/lon</span> to the API, so results are sorted by proximity to you rather than to a fixed data center.
+            </p>
+            <p className="text-muted-foreground leading-relaxed">
+              Search sends the first word to the API (its only supported format), then any extra words are applied as a local filter on the returned results.
             </p>
           </section>
 
