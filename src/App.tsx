@@ -13,11 +13,11 @@ import {
 } from '@tanstack/react-table'
 import {
   Search, Copy, Check, ArrowUpDown, ArrowUp, ArrowDown,
-  ChevronDown, Zap, X, ServerOff, RefreshCw, Play,
+  ChevronDown, Zap, X, ServerOff, RefreshCw, Play, Info,
 } from 'lucide-react'
 import { ModeToggle } from '@/components/mode-toggle'
-import { CommandSearch } from '@/components/command-search'
 import { ServerDetailSheet } from '@/components/server-detail-sheet'
+import { AboutDialog } from '@/components/about-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -65,19 +65,31 @@ function SortButton({ label, column }: { label: string; column: import('@tanstac
 
 export default function App() {
   const [allServers, setAllServers]         = useState<Server[]>([])
-  const [query, setQuery]                   = useState('')
+  const [query, setQuery]                   = useState(() => new URLSearchParams(window.location.search).get('q') ?? '')
   const [loading, setLoading]               = useState(false)
   const [error, setError]                   = useState<string | null>(null)
   const [copiedId, setCopiedId]             = useState<string | null>(null)
   const [selectedServer, setSelectedServer] = useState<Server | null>(null)
-  const [commandOpen, setCommandOpen]       = useState(false)
+  const [aboutOpen, setAboutOpen]           = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
+  const filterRef = useRef<HTMLInputElement>(null)
 
   // TanStack Table state
-  const [sorting, setSorting]                   = useState<SortingState>([])
+  const [sorting, setSorting]                   = useState<SortingState>(() => {
+    const s = new URLSearchParams(window.location.search).get('sort')
+    if (!s) return []
+    const [id, dir] = s.split(':')
+    return [{ id, desc: dir === 'desc' }]
+  })
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
-  const [globalFilter, setGlobalFilter]         = useState('')
-  const [pagination, setPagination]             = useState<PaginationState>({ pageIndex: 0, pageSize: 10 })
+  const [globalFilter, setGlobalFilter]         = useState(() => new URLSearchParams(window.location.search).get('filter') ?? '')
+  const [pagination, setPagination]             = useState<PaginationState>(() => {
+    const p = new URLSearchParams(window.location.search)
+    return {
+      pageIndex: Number(p.get('page') ?? 0),
+      pageSize:  Number(p.get('size') ?? 10),
+    }
+  })
 
   const fetchServers = useCallback(async (searchQuery: string) => {
     setLoading(true)
@@ -101,7 +113,36 @@ export default function App() {
     }
   }, [])
 
-  useEffect(() => { fetchServers('') }, [fetchServers])
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get('q') ?? ''
+    fetchServers(q)
+  }, [fetchServers])
+
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === '/' && !e.metaKey && !e.ctrlKey) {
+        const tag = (e.target as HTMLElement).tagName
+        if (tag === 'INPUT' || tag === 'TEXTAREA') return
+        e.preventDefault()
+        filterRef.current?.focus()
+        filterRef.current?.select()
+      }
+    }
+    document.addEventListener('keydown', handleKey)
+    return () => document.removeEventListener('keydown', handleKey)
+  }, [])
+
+  // Sync state → URL params
+  useEffect(() => {
+    const params = new URLSearchParams()
+    if (query)                params.set('q',      query)
+    if (globalFilter)         params.set('filter', globalFilter)
+    if (sorting.length > 0)   params.set('sort',   `${sorting[0].id}:${sorting[0].desc ? 'desc' : 'asc'}`)
+    if (pagination.pageIndex) params.set('page',   String(pagination.pageIndex))
+    if (pagination.pageSize !== 10) params.set('size', String(pagination.pageSize))
+    const qs = params.toString()
+    window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname)
+  }, [query, globalFilter, sorting, pagination])
 
   function copyId(id: string) {
     navigator.clipboard.writeText(id).then(() => {
@@ -220,16 +261,11 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Command search */}
-      <CommandSearch
-        open={commandOpen}
-        onOpenChange={setCommandOpen}
-        servers={allServers}
-        onSelect={setSelectedServer}
-      />
-
       {/* Server detail sheet */}
       <ServerDetailSheet server={selectedServer} onClose={() => setSelectedServer(null)} />
+
+      {/* About dialog */}
+      <AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} />
 
       {/* Header */}
       <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-8 h-14 flex items-center gap-3">
@@ -238,6 +274,14 @@ export default function App() {
         <span className="text-muted-foreground/40 select-none">·</span>
         <span className="text-xs text-muted-foreground hidden sm:block">Browse servers by ISP, operator or city</span>
         <div className="ml-auto flex items-center gap-1">
+          <Button
+            variant="ghost" size="icon"
+            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+            onClick={() => setAboutOpen(true)}
+            aria-label="About"
+          >
+            <Info className="h-4 w-4" />
+          </Button>
           <ModeToggle />
           <a
             href="https://github.com/svenvg93/ookla-server-list"
@@ -309,6 +353,7 @@ export default function App() {
             </div>
             <div className="relative">
               <Input
+                ref={filterRef}
                 value={globalFilter}
                 onChange={e => table.setGlobalFilter(e.target.value)}
                 placeholder="Filter by ISP, city, country…"
