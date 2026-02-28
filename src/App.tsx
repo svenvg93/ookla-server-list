@@ -6,63 +6,25 @@ import {
   getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
-  type ColumnDef,
   type PaginationState,
   type SortingState,
   type VisibilityState,
 } from '@tanstack/react-table'
-import {
-  Search, Copy, Check, ArrowUpDown, ArrowUp, ArrowDown,
-  ChevronDown, Zap, X, ServerOff, RefreshCw, Play, Info,
-} from 'lucide-react'
+import { Search, X, Zap, ServerOff, Info } from 'lucide-react'
 import { ModeToggle } from '@/components/mode-toggle'
 import { ServerDetailSheet } from '@/components/server-detail-sheet'
 import { AboutDialog } from '@/components/about-dialog'
+import { ServersToolbar } from '@/components/servers-toolbar'
+import { ServersPagination } from '@/components/servers-pagination'
+import { useServerColumns } from '@/hooks/use-server-columns'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-
-interface Server {
-  id: string
-  name: string
-  country: string
-  cc: string
-  sponsor: string
-  host: string
-  distance: number
-  https_functional: number
-  preferred: number
-  isp_id: string
-  lat: string
-  lon: string
-  url: string
-}
-
-function SortButton({ label, column }: { label: string; column: import('@tanstack/react-table').Column<Server> }) {
-  const sorted = column.getIsSorted()
-  return (
-    <Button variant="ghost" className="-ml-3 h-8" onClick={() => column.toggleSorting(sorted === 'asc')}>
-      {label}
-      {sorted === 'asc'  ? <ArrowUp   className="ml-1 h-3 w-3" /> :
-       sorted === 'desc' ? <ArrowDown className="ml-1 h-3 w-3" /> :
-                           <ArrowUpDown className="ml-1 h-3 w-3 opacity-40" />}
-    </Button>
-  )
-}
+import { type Server } from '@/lib/types'
 
 export default function App() {
   const [allServers, setAllServers]         = useState<Server[]>([])
@@ -150,88 +112,19 @@ export default function App() {
     window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname)
   }, [query, globalFilter, sorting, pagination])
 
-  function copyId(id: string) {
+  const copyId = useCallback((id: string) => {
     navigator.clipboard.writeText(id).then(() => {
       setCopiedId(id)
       setTimeout(() => setCopiedId(null), 1500)
     })
-  }
+  }, [])
 
   function clearFilter() {
     setGlobalFilter('')
     setPagination(p => ({ ...p, pageIndex: 0 }))
   }
 
-  const columns = useMemo<ColumnDef<Server>[]>(() => [
-    {
-      accessorKey: 'sponsor',
-      header: ({ column }) => <SortButton label="Sponsor / ISP" column={column} />,
-    },
-    {
-      accessorKey: 'country',
-      header: ({ column }) => <SortButton label="Country" column={column} />,
-    },
-    {
-      accessorKey: 'name',
-      header: ({ column }) => <SortButton label="City" column={column} />,
-      cell: ({ row }) => (
-        <div>
-          {row.original.preferred ? (
-            <span className="inline-block w-1.5 h-1.5 rounded-full bg-yellow-500 mr-1.5 align-middle" title="Preferred server" />
-          ) : null}
-          {row.getValue('name')}
-        </div>
-      ),
-    },
-    {
-      accessorKey: 'host',
-      header: 'Host',
-      cell: ({ row }) => (
-        <span className="font-mono text-xs text-muted-foreground">{row.getValue('host')}</span>
-      ),
-    },
-    {
-      accessorKey: 'id',
-      header: ({ column }) => <SortButton label="ID" column={column} />,
-      cell: ({ row }) => {
-        const id: string = row.getValue('id')
-        return (
-          <div className="flex items-center gap-1.5 text-muted-foreground text-xs tabular-nums">
-            {id}
-            <Button
-              variant="outline" size="icon" className="h-6 w-6 shrink-0"
-              onClick={e => { e.stopPropagation(); copyId(id) }}
-            >
-              {copiedId === id
-                ? <Check className="h-3 w-3 text-emerald-500" />
-                : <Copy className="h-3 w-3" />}
-            </Button>
-          </div>
-        )
-      },
-    },
-    {
-      id: 'actions',
-      header: '',
-      enableHiding: false,
-      cell: ({ row }) => {
-        const id: string = row.original.id
-        return (
-          <a
-            href={`https://www.speedtest.net/server/${id}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={e => e.stopPropagation()}
-          >
-            <Button variant="default" size="sm" className="h-7 gap-1.5 px-3 text-xs shrink-0">
-              <Play className="h-3 w-3" />
-              Run speedtest
-            </Button>
-          </a>
-        )
-      },
-    },
-  ], [copiedId, copyId])
+  const columns = useServerColumns(copiedId, copyId)
 
   const table = useReactTable({
     data: allServers,
@@ -247,30 +140,20 @@ export default function App() {
     getPaginationRowModel: getPaginationRowModel(),
   })
 
-  const COLUMN_LABELS: Record<string, string> = {
-    id: 'ID', country: 'Country', name: 'City',
-    sponsor: 'Sponsor / ISP', host: 'Host',
-  }
-
   const hasData = !loading && !error && allServers.length > 0
 
-  // Stats for the strip
-  const filteredRows = table.getFilteredRowModel().rows
   const stats = useMemo(() => {
-    const servers = filteredRows.map(r => r.original)
+    const servers = table.getFilteredRowModel().rows.map(r => r.original)
     return {
       total: servers.length,
       countries: new Set(servers.map(s => s.cc)).size,
       isps: new Set(servers.map(s => s.sponsor)).size,
     }
-  }, [filteredRows])
+  }, [table.getFilteredRowModel().rows]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Server detail sheet */}
       <ServerDetailSheet server={selectedServer} onClose={() => setSelectedServer(null)} />
-
-      {/* About dialog */}
       <AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} />
 
       {/* Header */}
@@ -278,7 +161,7 @@ export default function App() {
         <Zap className="h-4 w-4 text-primary shrink-0" />
         <h1 className="text-sm font-semibold tracking-tight">Speedtest Server Explorer</h1>
         <span className="text-muted-foreground/40 select-none">·</span>
-        <span className="text-xs text-muted-foreground hidden sm:block">Browse servers by ISP, operator or city</span>
+        <span className="text-xs text-muted-foreground hidden sm:block">Browse & discover Speedtest servers worldwide</span>
         <div className="ml-auto flex items-center gap-1">
           <Button
             variant="ghost" size="icon"
@@ -353,71 +236,15 @@ export default function App() {
 
         {/* Toolbar */}
         {hasData && (
-          <div className="flex items-center gap-2 mb-3 flex-wrap">
-            <div className="flex items-center gap-2 flex-1 flex-wrap">
-              {(() => {
-                const { pageIndex, pageSize } = table.getState().pagination
-                const total = table.getFilteredRowModel().rows.length
-                const from = total === 0 ? 0 : pageIndex * pageSize + 1
-                const to = Math.min((pageIndex + 1) * pageSize, total)
-                return <span className="text-sm text-muted-foreground">Showing <strong className="text-foreground">{from}–{to}</strong> of{' '}<strong className="text-foreground">{total}</strong></span>
-              })()}
-              <span className="text-muted-foreground/40 select-none text-sm">·</span>
-              <Badge variant="secondary" className="font-normal gap-1">
-                <span className="font-semibold">{stats.countries}</span> countries
-              </Badge>
-              <Badge variant="secondary" className="font-normal gap-1">
-                <span className="font-semibold">{stats.isps}</span> ISPs
-              </Badge>
-            </div>
-            <div className="relative">
-              <Input
-                ref={filterRef}
-                value={globalFilter}
-                onChange={e => table.setGlobalFilter(e.target.value)}
-                placeholder="Filter by ISP, city, country…"
-                className={`h-9 w-56 ${globalFilter ? 'pr-7' : ''}`}
-              />
-              {globalFilter && (
-                <button
-                  onClick={clearFilter}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                  aria-label="Clear filter"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-9 w-9 shrink-0"
-              onClick={() => fetchServers(query)}
-              disabled={loading}
-              aria-label="Refresh"
-            >
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">
-                  Columns <ChevronDown className="ml-1 h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {table.getAllColumns().filter(c => c.getCanHide()).map(col => (
-                  <DropdownMenuCheckboxItem
-                    key={col.id}
-                    className="capitalize"
-                    checked={col.getIsVisible()}
-                    onCheckedChange={v => col.toggleVisibility(!!v)}
-                  >
-                    {COLUMN_LABELS[col.id] ?? col.id}
-                  </DropdownMenuCheckboxItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+          <ServersToolbar
+            table={table}
+            stats={stats}
+            globalFilter={globalFilter}
+            filterRef={filterRef}
+            loading={loading}
+            onRefresh={() => fetchServers(query)}
+            onClearFilter={clearFilter}
+          />
         )}
 
         {/* Table */}
@@ -478,40 +305,13 @@ export default function App() {
         </div>
 
         {/* Pagination */}
-        {hasData && (
-          <div className="flex items-center justify-between py-4">
-            <span className="text-sm text-muted-foreground">
-              Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
-            </span>
-            <div className="flex items-center gap-2">
-              <Select
-                value={String(table.getState().pagination.pageSize)}
-                onValueChange={v => table.setPageSize(Number(v))}
-              >
-                <SelectTrigger className="w-28">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {[10, 15, 20, 25].map(n => (
-                    <SelectItem key={n} value={String(n)}>{n} / page</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button variant="outline" size="sm" onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}>
-                Previous
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>
-                Next
-              </Button>
-            </div>
-          </div>
-        )}
+        {hasData && <ServersPagination table={table} />}
       </main>
 
       <footer className="border-t px-8 py-4 mt-8">
         <p className="text-xs text-muted-foreground text-center">
           This tool is not affiliated with, endorsed by, or connected to Ookla, LLC or Speedtest.net.
-          Server data is sourced from the publicly available Speedtest server list.
+          Server data is sourced from the publicly available Speedtest server API.
           All trademarks belong to their respective owners.
         </p>
       </footer>

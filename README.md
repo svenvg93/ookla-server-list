@@ -74,4 +74,4 @@ worker/
 
 ## Disclaimer
 
-This tool is not affiliated with, endorsed by, or connected to Ookla, LLC or Speedtest.net. Server data is sourced from the publicly available Speedtest server list. All trademarks belong to their respective owners.
+This tool is not affiliated with, endorsed by, or connected to Ookla, LLC or Speedtest.net. Server data is sourced from the publicly available Speedtest server API. All trademarks belong to their respective owners.

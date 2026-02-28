@@ -48,7 +48,7 @@ export function AboutDialog({ open, onOpenChange }: AboutDialogProps) {
               Data source
             </div>
             <p className="text-muted-foreground leading-relaxed">
-              Server data is fetched from the publicly available Speedtest server list
+              Server data is fetched from the publicly available Speedtest server API
               at <span className="font-mono text-xs text-foreground">www.speedtest.net/api/js/servers</span>.
               Data is refreshed on each search.
             </p>
