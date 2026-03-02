@@ -1,22 +1,11 @@
 import { useRef, useEffect } from 'react'
 import { type Table } from '@tanstack/react-table'
-import { RefreshCw, ChevronDown, X } from 'lucide-react'
+import { RefreshCw, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import { type Server } from '@/lib/types'
-
-const COLUMN_LABELS: Record<string, string> = {
-  id: 'ID', country: 'Country', name: 'City',
-  sponsor: 'Sponsor / ISP', host: 'Host',
-}
 
 interface ServersToolbarProps {
   table: Table<Server>
@@ -89,25 +78,6 @@ export function ServersToolbar({
       >
         <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
       </Button>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm">
-            Columns <ChevronDown className="ml-1 h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          {table.getAllColumns().filter(c => c.getCanHide()).map(col => (
-            <DropdownMenuCheckboxItem
-              key={col.id}
-              className="capitalize"
-              checked={col.getIsVisible()}
-              onCheckedChange={v => col.toggleVisibility(!!v)}
-            >
-              {COLUMN_LABELS[col.id] ?? col.id}
-            </DropdownMenuCheckboxItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
     </div>
   )
 }
