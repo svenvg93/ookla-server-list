@@ -3,10 +3,13 @@ import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
 import {
   flexRender,
   getCoreRowModel,
+  getFacetedRowModel,
+  getFacetedUniqueValues,
   getFilteredRowModel,
   getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
+  type ColumnFiltersState,
   type FilterFn,
   type PaginationState,
   type SortingState,
@@ -53,6 +56,14 @@ export default function App() {
   })
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [globalFilter, setGlobalFilter]         = useState(() => new URLSearchParams(window.location.search).get('filter') ?? '')
+  const [columnFilters, setColumnFilters]       = useState<ColumnFiltersState>(() => {
+    const p = new URLSearchParams(window.location.search)
+    const filters: ColumnFiltersState = []
+    const country = p.get('country'); if (country) filters.push({ id: 'country', value: country.split(',') })
+    const city    = p.get('city');    if (city)    filters.push({ id: 'name',    value: city.split(',') })
+    const isp     = p.get('isp');     if (isp)     filters.push({ id: 'sponsor', value: isp.split(',') })
+    return filters
+  })
   const [pagination, setPagination]             = useState<PaginationState>(() => {
     const p = new URLSearchParams(window.location.search)
     return {
@@ -99,12 +110,19 @@ export default function App() {
     const params = new URLSearchParams()
     if (query)                params.set('q',      query)
     if (globalFilter)         params.set('filter', globalFilter)
-    if (sorting.length > 0)   params.set('sort',   `${sorting[0].id}:${sorting[0].desc ? 'desc' : 'asc'}`)
-    if (pagination.pageIndex) params.set('page',   String(pagination.pageIndex))
+    for (const { id, value } of columnFilters) {
+      const arr = value as string[]
+      if (arr.length) {
+        const key = id === 'name' ? 'city' : id === 'sponsor' ? 'isp' : id
+        params.set(key, arr.join(','))
+      }
+    }
+    if (sorting.length > 0)   params.set('sort', `${sorting[0].id}:${sorting[0].desc ? 'desc' : 'asc'}`)
+    if (pagination.pageIndex) params.set('page', String(pagination.pageIndex))
     if (pagination.pageSize !== 10) params.set('size', String(pagination.pageSize))
     const qs = params.toString()
     window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname)
-  }, [query, globalFilter, sorting, pagination])
+  }, [query, globalFilter, columnFilters, sorting, pagination])
 
   const clearFilter = useCallback(() => {
     setGlobalFilter('')
@@ -118,15 +136,18 @@ export default function App() {
   const table = useReactTable({
     data: allServers,
     columns,
-    state: { sorting, columnVisibility, globalFilter, pagination },
+    state: { sorting, columnVisibility, globalFilter, columnFilters, pagination },
     onSortingChange: setSorting,
     onColumnVisibilityChange: setColumnVisibility,
     onGlobalFilterChange: v => { setGlobalFilter(v); setPagination(p => ({ ...p, pageIndex: 0 })) },
+    onColumnFiltersChange: f => { setColumnFilters(f); setPagination(p => ({ ...p, pageIndex: 0 })) },
     onPaginationChange: setPagination,
     globalFilterFn: multiWordFilter,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
+    getFacetedRowModel: getFacetedRowModel(),
+    getFacetedUniqueValues: getFacetedUniqueValues(),
     getPaginationRowModel: getPaginationRowModel(),
   })
 

@@ -1,5 +1,8 @@
 import { useMemo } from 'react'
-import { type ColumnDef, type Column } from '@tanstack/react-table'
+import { type ColumnDef, type Column, type FilterFn } from '@tanstack/react-table'
+
+const arrIncludesValue: FilterFn<never> = (row, columnId, filterValues: string[]) =>
+  filterValues.includes(row.getValue(columnId))
 import { Copy, Check, ArrowUpDown, ArrowUp, ArrowDown, Play } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -24,11 +27,13 @@ export function useServerColumns(copiedId: string | null, copyId: (id: string) =
       accessorKey: 'sponsor',
       size: 280,
       header: ({ column }) => <SortButton label="Sponsor / ISP" column={column} />,
+      filterFn: arrIncludesValue,
     },
     {
       accessorKey: 'country',
       size: 160,
       header: ({ column }) => <SortButton label="Country" column={column} />,
+      filterFn: arrIncludesValue,
       cell: ({ row }) => (
         <span className="flex items-center gap-1.5">
           <span className="text-base leading-none">{countryFlag(row.original.cc)}</span>
@@ -40,6 +45,7 @@ export function useServerColumns(copiedId: string | null, copyId: (id: string) =
       accessorKey: 'name',
       size: 150,
       header: ({ column }) => <SortButton label="City" column={column} />,
+      filterFn: arrIncludesValue,
       cell: ({ row }) => (
         <div>
           {row.original.preferred ? (
