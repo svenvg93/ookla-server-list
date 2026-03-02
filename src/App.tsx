@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
 import {
   flexRender,
   getCoreRowModel,
@@ -26,6 +27,7 @@ import {
 } from '@/components/ui/table'
 import { Skeleton } from '@/components/ui/skeleton'
 import { type Server } from '@/lib/types'
+import { GITHUB_REPO_URL } from '@/lib/constants'
 
 const multiWordFilter: FilterFn<Server> = (row, _columnId, filterValue: string) => {
   const words = filterValue.toLowerCase().split(/\s+/).filter(Boolean)
@@ -38,12 +40,10 @@ export default function App() {
   const [query, setQuery]                   = useState(() => new URLSearchParams(window.location.search).get('q') ?? '')
   const [loading, setLoading]               = useState(false)
   const [error, setError]                   = useState<string | null>(null)
-  const [copiedId, setCopiedId]             = useState<string | null>(null)
   const [selectedServer, setSelectedServer] = useState<Server | null>(null)
   const [aboutOpen, setAboutOpen]           = useState(false)
-  const searchRef    = useRef<HTMLInputElement>(null)
-  const filterRef    = useRef<HTMLInputElement>(null)
-  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const searchRef = useRef<HTMLInputElement>(null)
+  const { copied: copiedId, copy: copyId } = useCopyToClipboard()
 
   // TanStack Table state
   const [sorting, setSorting]                   = useState<SortingState>(() => {
@@ -95,20 +95,6 @@ export default function App() {
     fetchServers(q)
   }, [fetchServers])
 
-  useEffect(() => {
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === '/' && !e.metaKey && !e.ctrlKey) {
-        const tag = (e.target as HTMLElement).tagName
-        if (tag === 'INPUT' || tag === 'TEXTAREA') return
-        e.preventDefault()
-        filterRef.current?.focus()
-        filterRef.current?.select()
-      }
-    }
-    document.addEventListener('keydown', handleKey)
-    return () => document.removeEventListener('keydown', handleKey)
-  }, [])
-
   // Sync state → URL params
   useEffect(() => {
     const params = new URLSearchParams()
@@ -120,14 +106,6 @@ export default function App() {
     const qs = params.toString()
     window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname)
   }, [query, globalFilter, sorting, pagination])
-
-  const copyId = useCallback((id: string) => {
-    navigator.clipboard.writeText(id).then(() => {
-      if (copyTimerRef.current) clearTimeout(copyTimerRef.current)
-      setCopiedId(id)
-      copyTimerRef.current = setTimeout(() => setCopiedId(null), 1500)
-    })
-  }, [])
 
   const clearFilter = useCallback(() => {
     setGlobalFilter('')
@@ -184,7 +162,7 @@ export default function App() {
           </Button>
           <ModeToggle />
           <a
-            href="https://github.com/svenvg93/ookla-server-explorer"
+            href={GITHUB_REPO_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="text-muted-foreground hover:text-foreground transition-colors inline-flex items-center p-2"
@@ -259,7 +237,6 @@ export default function App() {
             table={table}
             stats={stats}
             globalFilter={globalFilter}
-            filterRef={filterRef}
             loading={loading}
             onRefresh={() => fetchServers(query)}
             onClearFilter={clearFilter}
