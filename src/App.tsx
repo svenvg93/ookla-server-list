@@ -22,7 +22,7 @@ import { DocsDialog } from '@/components/docs-dialog'
 import { ServersToolbar } from '@/components/servers-toolbar'
 import { ServersPagination } from '@/components/servers-pagination'
 import { useServerColumns } from '@/hooks/use-server-columns'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -43,8 +43,8 @@ export default function App() {
   const [query, setQuery]                   = useState(() => new URLSearchParams(window.location.search).get('q') ?? '')
   const [loading, setLoading]               = useState(false)
   const [error, setError]                   = useState<string | null>(null)
-  const [aboutOpen, setAboutOpen] = useState(false)
-  const [docsOpen, setDocsOpen]   = useState(false)
+  const [aboutOpen, setAboutOpen]     = useState(false)
+  const [docsOpen, setDocsOpen]       = useState(false)
   const { copied: copiedId, copy: copyId } = useCopyToClipboard()
 
   // TanStack Table state
@@ -231,27 +231,7 @@ export default function App() {
               <Search className="h-4 w-4 mr-2" />
               {loading ? 'Loading…' : 'Search'}
             </Button>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0 text-muted-foreground">
-                  <Info className="h-4 w-4" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent side="right" className="max-w-64 text-xs leading-relaxed">
-                <p className="font-medium mb-1">How search works</p>
-                <p>The first word is sent to the Speedtest API to fetch matching servers. Any additional words refine the results locally — so <span className="font-mono">Orange France</span> fetches all Orange servers, then filters for France.</p>
-                <p className="mt-1 text-muted-foreground">The API returns a maximum of 100 results per query.</p>
-              </PopoverContent>
-            </Popover>
           </div>
-          <p className="text-xs text-muted-foreground/60 mt-2">
-            {!query
-              ? 'Nearest to your location'
-              : query.trim().includes(' ')
-                ? 'First word searched via API · rest filtered locally'
-                : 'Searching worldwide'
-            }{' · '}API returns max 100 results.
-          </p>
 
         {/* Error */}
         {error && (

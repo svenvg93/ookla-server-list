@@ -91,9 +91,9 @@ export function ServersToolbar({
             value={globalFilter}
             onChange={e => table.setGlobalFilter(e.target.value)}
             placeholder="Filter…"
-            className={cn('h-9 w-40', globalFilter && 'pr-7')}
+            className={cn('h-9 w-40', globalFilter ? 'pr-7' : 'pr-8')}
           />
-          {globalFilter && (
+          {globalFilter ? (
             <button
               onClick={onClearFilter}
               className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
@@ -101,6 +101,10 @@ export function ServersToolbar({
             >
               <X className="h-3.5 w-3.5" />
             </button>
+          ) : (
+            <kbd className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-5 items-center rounded border bg-muted px-1 font-mono text-[10px] text-muted-foreground">
+              /
+            </kbd>
           )}
         </div>
         <Button
